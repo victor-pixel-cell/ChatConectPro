@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Avansat</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #1e1e1e;
+            color: white;
+            text-align: center;
+            margin: 0;
+        }
+
+        #popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #333;
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+        }
+
+        #chat-container {
+            display: flex;
+            width: 90%;
+            margin: auto;
+            margin-top: 20px;
+            border: 1px solid white;
+        }
+
+        #users {
+            width: 30%;
+            border-right: 1px solid white;
+            padding: 10px;
+        }
+
+        #chat {
+            width: 70%;
+            padding: 10px;
+        }
+
+        #messages {
+            height: 300px;
+            overflow-y: auto;
+            border-bottom: 1px solid white;
+            margin-bottom: 10px;
+            text-align: left;
+            padding: 10px;
+            background: #222;
+        }
+
+        input, button {
+            padding: 10px;
+            margin: 5px;
+        }
+
+        button {
+            background: #00aaff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="popup">
+        <p>Permite notificările pentru a primi alerte despre mesaje noi.</p>
+        <button onclick="requestNotifications()">Permite</button>
+        <button onclick="closePopup()">Nu, mulțumesc</button>
+    </div>
+
+    <div id="settings">
+        <input type="text" id="username" placeholder="Numele tău">
+        <button onclick="saveUsername()">Salvează</button>
+    </div>
+
+    <div id="chat-container">
+        <div id="users">
+            <h3>Utilizatori online</h3>
+            <ul id="user-list"></ul>
+        </div>
+        <div id="chat">
+            <div id="messages"></div>
+            <input type="text" id="message" placeholder="Scrie un mesaj...">
+            <button onclick="sendMessage()">Trimite</button>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+
+        function requestNotifications() {
+            Notification.requestPermission().then((result) => {
+                if (result === "granted") {
+                    alert("Notificările sunt activate!");
+                }
+                closePopup();
+            });
+        }
+
+        function closePopup() {
+            document.getElementById("popup").style.display = "none";
+        }
+
+        function saveUsername() {
+            const username = document.getElementById("username").value;
+            localStorage.setItem("chatUsername", username);
+            socket.emit("new-user", username);
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const savedUsername = localStorage.getItem("chatUsername");
+            if (savedUsername) {
+                socket.emit("new-user", savedUsername);
+            }
+            if (Notification.permission !== "granted") {
+                document.getElementById("popup").style.display = "block";
+            }
+        });
+
+        function sendMessage() {
+            const message = document.getElementById("message").value;
+            socket.emit("send-message", message);
+            document.getElementById("message").value = "";
+        }
+
+        socket.on("users-online", (users) => {
+            const userList = document.getElementById("user-list");
+            userList.innerHTML = "";
+            users.forEach(user => {
+                const li = document.createElement("li");
+                li.textContent = user;
+                userList.appendChild(li);
+            });
+        });
+
+        socket.on("receive-message", (data) => {
+            const messageDiv = document.getElementById("messages");
+            const newMessage = document.createElement("div");
+            newMessage.textContent = `${data.user}: ${data.message}`;
+            messageDiv.appendChild(newMessage);
+
+            if (document.hidden) {
+                new Notification("Mesaj nou de la " + data.user);
+            }
+        });
+    </script>
+
+</body>
+</html>
